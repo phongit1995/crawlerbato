@@ -90,7 +90,7 @@ const getListImages = async (url)=>{
 const  getHtmlLink = async(url)=>{
     browser = await puppeteer.launch({
         args : ['--no-sandbox', '--disable-setuid-sandbox'],
-        //headless: false
+        headless: false
     });
     const page = await browser.newPage();
     await page.setUserAgent(USER_ARGENT);
@@ -99,6 +99,7 @@ const  getHtmlLink = async(url)=>{
         waitUntil: 'networkidle0'
     });
     let data = await page.content();
+    await browser.close();
     return data ;
 }
 const getCookieCloudflare=async(proxy)=>{

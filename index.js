@@ -21,7 +21,11 @@ app.get("/cookie",async(req,res)=>{
 })
 app.get("/html",async(req,res)=>{
     try {
-        let html = await getHtmlLink(req.query.link);
+        let link = req.query.link ;
+        if(req.query.page){
+            link = link + "&page="+req.query.page ;
+        }
+        let html = await getHtmlLink(link);
         return res.send(html);
     } catch (error) {
         return res.json(error);
