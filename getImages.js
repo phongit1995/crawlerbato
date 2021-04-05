@@ -1,5 +1,8 @@
 let request = require("request-promise");
 var CryptoJS = require("crypto-js");
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+puppeteer.use(StealthPlugin());
 require("dotenv").config();
 let fs = require('fs');
 var _eval = require('eval')
@@ -7,6 +10,8 @@ let path = require('path');
 const BASE_URL="https://bato.to";
 var cache = require('memory-cache');
 let cheerio = require("cheerio");
+const USER_ARGENT ="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Safari/537.36";
+const  { isCloudflareJSChallenge} = require('./common');
 const listUserAgent = JSON.parse(fs.readFileSync(path.join(__dirname,"./userAgent.json"),'utf-8'));
 const getListImages = async (url)=>{
     const id_chapter = url.slice(url.lastIndexOf("/")+1,url.length);
@@ -14,29 +19,52 @@ const getListImages = async (url)=>{
     if(DataImageCache){
         return DataImageCache;
     }
-    let cookie = cache.get("COOKIE");
-    if(!cookie){
-         cookie = await getCookieBato();
-         cache.put("COOKIE",cookie,1000*60*60*24);
-    }
-    let options = {
-        uri:url,
-        method:"GET",
-        headers:{
-            Referer:BASE_URL,
-            'User-Agent': listUserAgent[Math.floor(Math.random()*listUserAgent.length)],
-            cookie:cookie
-        }
-    }
-    let data = await request(options);
+    // //let cookie = cache.get("COOKIE");
+    // // if(!cookie){
+    // //      cookie = await getCookieBato();
+    // //      cache.put("COOKIE",cookie,1000*60*60*24);
+    // // }
+    // let cookie  = await getCookieCloudflare();
+    // let options = {
+    //     uri:url,
+    //     method:"GET",
+    //     headers:{
+    //         Referer:BASE_URL,
+    //         'User-Agent': USER_ARGENT,
+    //         cookie:cookie
+    //     }
+    // }
+    // let data = await request(options);
+    // let result = data.toString().slice(data.toString().indexOf("const batojs"),data.toString().indexOf("const pages"));
+    // let {batojs,server,images} = _eval(result +";exports.batojs = batojs;exports.server = server;exports.images = images;");
+    // let link = JSON.parse(CryptoJS.AES.decrypt(server, batojs).toString(CryptoJS.enc.Utf8));
+    // link  = link.replace("//","https://");
+    // let listImages = images.map((item)=>{
+    //     return link+item.replace("//","https://") ;
+    // })
+    
+    
+    browser = await puppeteer.launch({
+        args : ['--no-sandbox', '--disable-setuid-sandbox'],
+        //headless: false
+    });
+    const page = await browser.newPage();
+    await page.setUserAgent(USER_ARGENT);
+    await page.authenticate();
+    await page.goto(url,{
+        waitUntil: 'networkidle0'
+    });
+    let data = await page.content();
     let result = data.toString().slice(data.toString().indexOf("const batojs"),data.toString().indexOf("const pages"));
     let {batojs,server,images} = _eval(result +";exports.batojs = batojs;exports.server = server;exports.images = images;");
     let link = JSON.parse(CryptoJS.AES.decrypt(server, batojs).toString(CryptoJS.enc.Utf8));
-    link  = link.replace("//","https://");
+    if(link.indexOf("https://")<0){
+        link  = link.replace("//","https://");
+    }
     let listImages = images.map((item)=>{
         return link+item.replace("//","https://") ;
     })
-    
+    await browser.close();
     const PATH_SAVE= urlPath = path.join(__dirname,"public",id_chapter);
     if (!fs.existsSync(PATH_SAVE)){
         fs.mkdirSync(PATH_SAVE,{recursive: true});
@@ -57,6 +85,72 @@ const getListImages = async (url)=>{
     let resultPromise = await Promise.all(ArrayPromise);
     cache.put("DATA_"+id_chapter,resultPromise,1000*60*60*24);
     return resultPromise;
+
+}
+const  getHtmlLink = async(url)=>{
+    browser = await puppeteer.launch({
+        args : ['--no-sandbox', '--disable-setuid-sandbox'],
+        //headless: false
+    });
+    const page = await browser.newPage();
+    await page.setUserAgent(USER_ARGENT);
+    await page.authenticate();
+    await page.goto(url,{
+        waitUntil: 'networkidle0'
+    });
+    let data = await page.content();
+    return data ;
+}
+const getCookieCloudflare=async(proxy)=>{
+    const KEY_CACHE="KEY_CACHE"+proxy;
+    const dataCache = cache.get(KEY_CACHE);
+    if(dataCache){
+        return dataCache;
+    }
+    let newProxyUrl ,  browser;
+    if(proxy){
+        newProxyUrl = await proxyChain.anonymizeProxy(proxy);
+        browser = await puppeteer.launch({
+            args : ['--no-sandbox', '--disable-setuid-sandbox',`--proxy-server=${newProxyUrl}`]
+        });
+    }else {
+        browser = await puppeteer.launch({
+            args : ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+    }
+    
+    const page = await browser.newPage();
+    await page.setUserAgent(USER_ARGENT);
+    await page.authenticate();
+    await page.goto("https://bato.to/",{
+        timeout:45000,
+        waitUntil: 'domcontentloaded'
+    })
+    
+    let count = 1;
+    let content = await page.content();
+    while(isCloudflareJSChallenge(content)){
+        response = await page.waitForNavigation({
+            timeout: 50000,
+            waitUntil: 'domcontentloaded'
+        });
+        content = await page.content();
+        if (count++ === 10) {
+          throw new Error('timeout on just a moment');
+        }
+    }
+    const cookies = await page.cookies();
+    let result ="";
+    for(let cookie of cookies){
+        result+= `${cookie.name}=${cookie.value};` ;
+    }
+    if(newProxyUrl){
+        await proxyChain.closeAnonymizedProxy(newProxyUrl, true);
+    }
+    await browser.close();
+    cache.put(KEY_CACHE,result,1000*60*30);
+    return result ;
+
 }
 const getCookieBato = async ()=>{
     let options = {
@@ -97,5 +191,7 @@ const SaveImages = (urlImages,urlPath,idChapter)=>{
 }
 module.exports = {
     getListImages,
-    getCookieBato
+    getCookieBato,
+    getCookieCloudflare,
+    getHtmlLink
 } ;
