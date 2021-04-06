@@ -87,18 +87,53 @@ const getListImages = async (url)=>{
     return resultPromise;
 
 }
-const  getHtmlLink = async(url)=>{
-    browser = await puppeteer.launch({
-        args : ['--no-sandbox', '--disable-setuid-sandbox'],
-        headless: false
-    });
+const  getHtmlLink = async(url,proxy)=>{
+    const KEY_CACHE="KEY_CACHE"+"Home";
+    const dataCache = cache.get(KEY_CACHE);
+    let newProxyUrl ,  browser;
+    if(proxy){
+        newProxyUrl = await proxyChain.anonymizeProxy(proxy);
+        browser = await puppeteer.launch({
+            args : ['--no-sandbox', '--disable-setuid-sandbox',`--proxy-server=${newProxyUrl}`],
+            //headless: false
+        });
+    }else {
+        browser = await puppeteer.launch({
+            args : ['--no-sandbox', '--disable-setuid-sandbox'],
+            // headless: false
+        });
+    }
+    console.log(url);
     const page = await browser.newPage();
     await page.setUserAgent(USER_ARGENT);
     await page.authenticate();
     await page.goto(url,{
-        waitUntil: 'networkidle0'
-    });
-    let data = await page.content();
+        timeout:45000,
+        waitUntil: 'domcontentloaded'
+    })
+    
+    let count = 1;
+    let content = await page.content();
+    while(isCloudflareJSChallenge(content)){
+        response = await page.waitForNavigation({
+            timeout: 50000,
+            waitUntil: 'domcontentloaded'
+        });
+        content = await page.content();
+        if (count++ === 20) {
+          throw new Error('timeout on just a moment');
+        }
+    }
+    if(newProxyUrl){
+        await proxyChain.closeAnonymizedProxy(newProxyUrl, true);
+    }
+    const cookies = await page.cookies();
+    let result ="";
+    for(let cookie of cookies){
+        result+= `${cookie.name}=${cookie.value};` ;
+    }
+    cache.put(KEY_CACHE,result,1000*60*30);
+    let data = await page.content()
     await browser.close();
     return data ;
 }
