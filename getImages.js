@@ -52,7 +52,7 @@ const getListImages = async (url)=>{
     await page.setUserAgent(USER_ARGENT);
     await page.authenticate();
     await page.goto(url,{
-        waitUntil: 'networkidle0'
+        waitUntil: 'domcontentloaded'
     });
     let data = await page.content();
     let result = data.toString().slice(data.toString().indexOf("const batojs"),data.toString().indexOf("const pages"));
