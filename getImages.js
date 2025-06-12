@@ -28,11 +28,27 @@ const getListImages = async (url)=>{
             waitUntil: 'networkidle0'
         });
         const elements = await page.$$('.reading-content div.page-break');
-        for (let i = 0; i < elements.length; i++) {
-            const el = elements[i];
-            await el.screenshot({
-            path: `div-page-break-${i + 1}.png`,
-            });
+        
+        // Create directory if it doesn't exist
+        const outputDir = path.join(process.cwd(), 'screenshots');
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+        }
+        
+        // Process screenshots with better error handling
+        let index = 1;
+        for (const element of elements) {
+            try {
+                const outputPath = path.join(outputDir, `div-page-break-${index}.png`);
+                await element.screenshot({
+                    path: outputPath,
+                });
+                console.log(`Screenshot saved: ${outputPath}`);
+                index++;
+            } catch (error) {
+                console.error(`Failed to capture screenshot ${index}:`, error.message);
+                index++;
+            }
         }
         // await browser.close();
     } catch (error) {
