@@ -14,77 +14,30 @@ const USER_ARGENT ="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 const  { isCloudflareJSChallenge} = require('./common');
 const listUserAgent = JSON.parse(fs.readFileSync(path.join(__dirname,"./userAgent.json"),'utf-8'));
 const getListImages = async (url)=>{
-    const id_chapter = url.slice(url.lastIndexOf("/")+1,url.length);
-    let DataImageCache = cache.get("DATA_"+id_chapter);
-    if(DataImageCache){
-        return DataImageCache;
-    }
-    // //let cookie = cache.get("COOKIE");
-    // // if(!cookie){
-    // //      cookie = await getCookieBato();
-    // //      cache.put("COOKIE",cookie,1000*60*60*24);
-    // // }
-    // let cookie  = await getCookieCloudflare();
-    // let options = {
-    //     uri:url,
-    //     method:"GET",
-    //     headers:{
-    //         Referer:BASE_URL,
-    //         'User-Agent': USER_ARGENT,
-    //         cookie:cookie
-    //     }
+    // const id_chapter = url.slice(url.lastIndexOf("/")+1,url.length);
+    // let DataImageCache = cache.get("DATA_"+id_chapter);
+    // if(DataImageCache){
+    //     return DataImageCache;
     // }
-    // let data = await request(options);
-    // let result = data.toString().slice(data.toString().indexOf("const batojs"),data.toString().indexOf("const pages"));
-    // let {batojs,server,images} = _eval(result +";exports.batojs = batojs;exports.server = server;exports.images = images;");
-    // let link = JSON.parse(CryptoJS.AES.decrypt(server, batojs).toString(CryptoJS.enc.Utf8));
-    // link  = link.replace("//","https://");
-    // let listImages = images.map((item)=>{
-    //     return link+item.replace("//","https://") ;
-    // })
-    
-    
     browser = await puppeteer.launch({
-        args : ['--no-sandbox', '--disable-setuid-sandbox'],
-        //headless: false
+        args : ['--no-sandbox', '--disable-setuid-sandbox','--proxy-server=http://198.23.239.134:6540'],
+        headless: false
     });
     const page = await browser.newPage();
+     await page.authenticate({
+        username: 'grkhceck',
+        password: '3448dawy7xjr'
+    });
     await page.setUserAgent(USER_ARGENT);
-    await page.authenticate();
+    // await page.authenticate();
     await page.goto(url,{
         waitUntil: 'domcontentloaded'
     });
     let data = await page.content();
-    let result = data.toString().slice(data.toString().indexOf("const batojs"),data.toString().indexOf("const pages"));
-    let {batojs,server,images} = _eval(result +";exports.batojs = batojs;exports.server = server;exports.images = images;");
-    let link = JSON.parse(CryptoJS.AES.decrypt(server, batojs).toString(CryptoJS.enc.Utf8));
-    if(link.indexOf("https://")<0){
-        link  = link.replace("//","https://");
-    }
-    let listImages = images.map((item)=>{
-        return link+item.replace("//","https://") ;
-    })
-    await browser.close();
-    const PATH_SAVE= urlPath = path.join(__dirname,"public",id_chapter);
-    if (!fs.existsSync(PATH_SAVE)){
-        fs.mkdirSync(PATH_SAVE,{recursive: true});
-    }
-    else {
-        fs.readdir(PATH_SAVE, (err, files) => {
-            if (err) throw err;
-            for (const file of files) {
-              fs.unlink(path.join(PATH_SAVE, file), errr=> {
-                if (errr) throw errr;
-              });
-            }
-          });
-    }
-    let ArrayPromise = listImages.map((item,index)=>{
-        return SaveImages(item,PATH_SAVE,id_chapter);
-    })
-    let resultPromise = await Promise.all(ArrayPromise);
-    cache.put("DATA_"+id_chapter,resultPromise,1000*60*60*24);
-    return resultPromise;
+    let result = data.toString();
+    console.log(result);
+    // await browser.close();
+    
 
 }
 const  getHtmlLink = async(url,proxy)=>{

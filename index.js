@@ -5,9 +5,11 @@ let app = express();
 app.use(express.static('public'))
 app.get("/",async(req,res)=>{
     try {
+        console.log(req.query.link);
         let listLink = await getListImages(req.query.link);
         return res.json(listLink);
     } catch (error) {
+        console.log(error);
         return res.json(error);
     }
 })
@@ -31,6 +33,7 @@ app.get("/html",async(req,res)=>{
         return res.json(error);
     }
 })
-app.listen(process.env.PORT|3000,function(){
+app.listen(3333,function(){
+    console.log(process.env.PORT);
     console.log("run success");
 })
