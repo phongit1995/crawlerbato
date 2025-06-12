@@ -1,6 +1,6 @@
 let express = require("express");
 require("dotenv").config();
-let {getListImages,getCookieCloudflare,getHtmlLink} = require('./getImages');
+let {getListImages,getCookieCloudflare} = require('./getImages');
 let app = express();
 app.use(express.static('public'))
 app.get("/",async(req,res)=>{
@@ -19,18 +19,6 @@ app.get("/cookie",async(req,res)=>{
         res.send(cookie);
     } catch (error) {
         console.log(error);
-    }
-})
-app.get("/html",async(req,res)=>{
-    try {
-        let link = req.query.link ;
-        if(req.query.page){
-            link = link + "&page="+req.query.page ;
-        }
-        let html = await getHtmlLink(link);
-        return res.send(html);
-    } catch (error) {
-        return res.json(error);
     }
 })
 app.listen(3333,function(){
