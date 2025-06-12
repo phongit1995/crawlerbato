@@ -30,7 +30,8 @@ const getListImages = async (url) => {
         await page.setUserAgent(USER_ARGENT);
         await page.authenticate();
         await page.goto(url, {
-            waitUntil: 'networkidle0'
+            waitUntil: 'networkidle0',
+            timeout: 60000
         });
         const elements = await page.$$('.reading-content div.page-break');
         if (!fs.existsSync(outputDir)) {
@@ -41,7 +42,7 @@ const getListImages = async (url) => {
         imagePaths = Array.from({
             length: elements.length
         }, (_, idx) => {
-            return `$/{mangaName}/${chapterName}/${idx + 1}.png`;
+            return `/${mangaName}/${chapterName}/${idx + 1}.png`;
         });
 
         const screenshotPromises = elements.map((element, idx) => {
