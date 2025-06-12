@@ -4,64 +4,72 @@ puppeteer.use(StealthPlugin());
 require("dotenv").config();
 let fs = require('fs');
 let path = require('path');
-var cache = require('memory-cache');
-let cheerio = require("cheerio");
-const USER_ARGENT ="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Safari/537.36";
-const  { isCloudflareJSChallenge} = require('./common');
-const listUserAgent = JSON.parse(fs.readFileSync(path.join(__dirname,"./userAgent.json"),'utf-8'));
-const getListImages = async (url)=>{
-    // const id_chapter = url.slice(url.lastIndexOf("/")+1,url.length);
-    // let DataImageCache = cache.get("DATA_"+id_chapter);
-    // if(DataImageCache){
-    //     return DataImageCache;
-    // }
-    let browser
+let cache = require('memory-cache');
+const USER_ARGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Safari/537.36";
+const getListImages = async (url) => {
+    let urlLink = url;
+    if (url.endsWith("/")) urlLink = url.slice(0, -1);
+    const urlParts = urlLink.split('/');
+    const mangaName = urlParts[urlParts.length - 2];
+    const chapterName = urlParts[urlParts.length - 1];
+    console.log(mangaName, chapterName);
+    if (!mangaName || !chapterName) throw new Error("Invalid URL");
+    const outputDir = path.join(process.cwd(), 'public', mangaName, chapterName);
+    let dataImageCache = cache.get(url);
+    if (dataImageCache) {
+        return dataImageCache;
+    }
+    let browser;
+    let imagePaths = [];
+
     try {
         browser = await puppeteer.launch({
-        args : ['--no-sandbox', '--disable-setuid-sandbox',],
-        headless: false
+            args: ['--no-sandbox', '--disable-setuid-sandbox', ],
+            // headless: false
         });
         const page = await browser.newPage();
         await page.setUserAgent(USER_ARGENT);
         await page.authenticate();
-        await page.goto(url,{
+        await page.goto(url, {
             waitUntil: 'networkidle0'
         });
         const elements = await page.$$('.reading-content div.page-break');
-        
-        // Create directory if it doesn't exist
-        const outputDir = path.join(process.cwd(), 'screenshots');
         if (!fs.existsSync(outputDir)) {
-            fs.mkdirSync(outputDir, { recursive: true });
+            fs.mkdirSync(outputDir, {
+                recursive: true
+            });
         }
-        
-        // Process screenshots with better error handling
-        let index = 1;
-        for (const element of elements) {
-            try {
-                const outputPath = path.join(outputDir, `div-page-break-${index}.png`);
-                await element.screenshot({
-                    path: outputPath,
+        console.log(elements.length);
+        imagePaths = Array.from({
+            length: elements.length
+        }, (_, idx) => {
+            return `$/{mangaName}/${chapterName}/${idx + 1}.png`;
+        });
+
+        const screenshotPromises = elements.map((element, idx) => {
+            const index = idx + 1;
+            const outputPath = path.join(outputDir, `${index}.png`);
+            return element.screenshot({
+                    path: outputPath
+                })
+                .then(() => console.log(`Screenshot saved: ${outputPath}`))
+                .catch(error => {
+                    console.error(`Failed to capture screenshot ${index}:`, error.message);
+                    imagePaths[idx] = null;
                 });
-                console.log(`Screenshot saved: ${outputPath}`);
-                index++;
-            } catch (error) {
-                console.error(`Failed to capture screenshot ${index}:`, error.message);
-                index++;
-            }
-        }
-        // await browser.close();
+        });
+
+        await Promise.all(screenshotPromises);
+        cache.put(url, imagePaths, 1000 * 60 * 60 * 24);
     } catch (error) {
-        
-    }finally {
+        console.error("Error in getListImages:", error.message);
+    } finally {
         if (browser) {
-            await browser?.close();
+            await browser.close();
         }
     }
-    
-    
-
+    return imagePaths.filter(Boolean);
 }
 module.exports = {
     getListImages,
-} ;
+};
