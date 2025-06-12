@@ -12,7 +12,6 @@ const getListImages = async (url) => {
     const urlParts = urlLink.split('/');
     const mangaName = urlParts[urlParts.length - 2];
     const chapterName = urlParts[urlParts.length - 1];
-    console.log(mangaName, chapterName);
     if (!mangaName || !chapterName) throw new Error("Invalid URL");
     const outputDir = path.join(process.cwd(), 'public', mangaName, chapterName);
     let dataImageCache = cache.get(url);
@@ -39,7 +38,6 @@ const getListImages = async (url) => {
                 recursive: true
             });
         }
-        console.log(elements.length);
         imagePaths = Array.from({
             length: elements.length
         }, (_, idx) => {
