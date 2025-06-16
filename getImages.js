@@ -45,20 +45,19 @@ const getListImages = async (url) => {
             return `/${mangaName}/${chapterName}/${idx + 1}.png`;
         });
 
-        const screenshotPromises = elements.map((element, idx) => {
+        // Process screenshots sequentially to reduce memory usage
+        for (let idx = 0; idx < elements.length; idx++) {
+            const element = elements[idx];
             const index = idx + 1;
             const outputPath = path.join(outputDir, `${index}.png`);
-            return element.screenshot({
-                    path: outputPath
-                })
-                .then(() => console.log(`Screenshot saved: ${outputPath}`))
-                .catch(error => {
-                    console.error(`Failed to capture screenshot ${index}:`, error.message);
-                    imagePaths[idx] = null;
-                });
-        });
+            
+            try {
+                await element.screenshot({ path: outputPath });
+            } catch (error) {
+                imagePaths[idx] = null;
+            }
+        }
 
-        await Promise.all(screenshotPromises);
         cache.put(url, imagePaths, 1000 * 60 * 60 * 24);
     } catch (error) {
         console.error("Error in getListImages:", error.message);
